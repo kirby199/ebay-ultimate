@@ -27,6 +27,8 @@ STATE_FILE = Path(os.getenv("STATE_FILE", "seen_items.json"))
 # Optional Browse API filter string, e.g. "price:[..50],priceCurrency:GBP" or
 # "buyingOptions:{FIXED_PRICE}". Leave empty for no filter.
 FILTER = os.getenv("EBAY_FILTER", "")
+# Only items physically located in this country (2-letter code). Set to "" to disable.
+COUNTRY = os.getenv("EBAY_COUNTRY", "GB")
 
 CLIENT_ID = os.environ["EBAY_CLIENT_ID"]
 CLIENT_SECRET = os.environ["EBAY_CLIENT_SECRET"]
@@ -62,8 +64,13 @@ def get_token() -> str:
 
 def search() -> list[dict]:
     params = {"q": QUERY, "sort": "newlyListed", "limit": "50"}
+    filters = []
+    if COUNTRY:
+        filters.append(f"itemLocationCountry:{COUNTRY}")
     if FILTER:
-        params["filter"] = FILTER
+        filters.append(FILTER)
+    if filters:
+        params["filter"] = ",".join(filters)
     r = requests.get(
         "https://api.ebay.com/buy/browse/v1/item_summary/search",
         headers={"Authorization": f"Bearer {get_token()}",
