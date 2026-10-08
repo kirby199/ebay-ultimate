@@ -49,6 +49,10 @@ def get_token() -> str:
               "scope": "https://api.ebay.com/oauth/api_scope"},
         timeout=30,
     )
+    if not r.ok:
+        print(f"eBay token error {r.status_code}: {r.text}")
+        print(f"(client id length={len(CLIENT_ID)}, secret length={len(CLIENT_SECRET)}, "
+              f"id looks like production={'PRD' in CLIENT_ID})")
     r.raise_for_status()
     j = r.json()
     _token["value"] = j["access_token"]
@@ -124,6 +128,8 @@ def main() -> None:
             check()
         except Exception as e:  # keep running through transient errors
             print(f"Error: {e}")
+            if args.once:
+                raise  # fail loudly so GitHub shows the real problem
         if args.once:
             break
         time.sleep(INTERVAL)
