@@ -1,0 +1,44 @@
+name: ebay-monitor
+
+on:
+  workflow_dispatch:        # lets cron-job.org trigger it every 2 minutes
+  schedule:
+    - cron: "*/15 * * * *"  # slow backup in case the external trigger fails
+
+# Never run two checks at once (they share seen_items.json)
+concurrency:
+  group: ebay-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: write           # needed to commit seen_items.json back
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      - name: Check eBay
+        run: python ebay_monitor.py --once
+        env:
+          EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
+          EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          # Optional extras:
+          # EBAY_FILTER: "price:[..30],priceCurrency:GBP"
+          # EBAY_MARKETPLACE: "EBAY_GB"
+
+      - name: Save seen listings
+        run: |
+          git config user.name "monitor-bot"
+          git config user.email "monitor-bot@users.noreply.github.com"
+          git add seen_items.json
+          git diff --cached --quiet || (git commit -m "update seen items" && git push)
